@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheduled Job Scheduler</title>
+</head>
+
+<style>
+    * {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 5px;
+    }
+
+    body {
+        margin: 2%;
+    }
+
+    .container {
+        width: 80%;
+    }
+
+    .formWrapper {
+        width: 500px;
+    }
+
+    input.settings {
+        width: 200px;
+        border-radius: 3px;
+    }
+
+    .codeWrapper {
+        border: 1px solid black;
+        border-radius: 5px;
+        width: 30%;
+        padding: 5px;
+        display: none;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .container {
+        display: flex;
+        float: left;
+    }
+
+    .submit {
+        width: 100px;
+        height: 30px;
+        font-weight: bold;
+        border-radius: 3px;
+    }
+
+    .submit:hover{
+        opacity: 0.9;
+    }
+
+    a {
+        color: #1976d2;
+        font-weight: bold;
+    }
+
+    select {
+        width: 205px;
+    }
+
+    body > div > div.formWrapper > form > button {
+        background-color: #1976d2;
+        color: white;
+    }
+</style>
+
+<body>
+
+    <h1>
+        Scheduled Job Scheduler
+    </h1>
+    <p>This tool only covers basic options, for more advanced configuration, refer to: <a
+            href="https://c2msnet.sharepoint.com/a/Pages/Batch%20Processing-Add%20a%20Scheduled%20Job-Configuration.aspx">Add
+            a Scheduled Job-Configuration</a></p>
+    <div class="container">
+        <div class="formWrapper">
+            <form>
+                <select class="settings" id="clientInput" required>
+                </select>
+                <label>Client</label>
+                <br>
+                <input type="text" class="settings" required value="1000009">
+                <label>EntityIDRequested</label>
+                <br>
+                <input type="datetime-local" class="settings" required>
+                <label>DateRequested</label>
+                <br>
+                <input type="text" class="settings" required value="1000009">
+                <label>LocatorEntityID</label>
+                <br>
+                <input type="text" class="settings" required value="1">
+                <label>LocatorObjectID</label>
+                <br>
+                <input type="text" class="settings" required value="1000009">
+                <label>LocatorPK</label>
+                <br>
+                <input type="text" class="settings" required>
+                <label>ObjectTypeID</label>
+                <br>
+                <input type="text" class="settings" required>
+                <label>AssociationTypeID</label>
+                <br>
+                <select class="settings" required>
+                    <option selected>Nightly</option>
+                    <option>Once a Month on Selected Date</option>
+                    <option>Once a Year on Selected Date</option>
+                </select>
+                <label>Recurrence</label>
+                <br>
+                <button class="submit" type="submit">Submit</button>
+            </form>
+        </div>
+        <div class="codeWrapper">
+            <div class="code"></div>
+            <Button class="submit" onclick="copy()">Copy</Button>
+        </div>
+    </div>
+
+    <script>
+        //GET data.json for client list
+
+        const request = new XMLHttpRequest();
+
+        request.addEventListener('readystatechange', () => {
+            if (request.readyState === 4 && request.status === 200) {
+                const jsonData = JSON.parse(request.responseText);
+                jsonData.forEach(clientAcc => {
+                    const clientList = document.getElementById("clientInput");
+                    clientList.innerHTML += `<option>${clientAcc.client}</option>`;
+                })
+            }
+        });
+
+        request.open('GET', './data.json');
+        request.send();
+
+        //Create Code block and build out SQL String
+
+        const form = document.querySelector("form");
+        const code = document.querySelector(".code");
+
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+
+            //Grab all inputs and push to Array
+
+            const inputArray = Array.from(document.querySelectorAll(".settings"));
+
+            inputArray.forEach(item => {
+                inputArray.push(item);
+            })
+
+            //Split out date
+
+            const inputDate = new Date(inputArray[2].value),
+                year = inputDate.getFullYear(),
+                month = inputDate.getMonth() + 1,
+                day = inputDate.getDate(),
+                hour = inputDate.getHours(),
+                mins = inputDate.getMinutes();
+
+            //Unhide code block div
+
+            const codeWrapper = document.querySelector(".codeWrapper");
+            codeWrapper.setAttribute("style", "display: block");
+
+            //Set Recurrence
+
+            setRecur = (selectedRecur) => {
+                if (selectedRecur == 'Nightly') {
+                    return [`&emsp;RecurrenceTypeID,<br>&emsp;RecurEvery<br>`,
+                        `&emsp;&emsp;&emsp;1,<br>&emsp;&emsp;&emsp;1`
+                    ];
+                } else if (selectedRecur == 'Once a Month on Selected Date') {
+                    return [
+                        `&emsp;RecurrenceTypeID,<br>
+                            &emsp;RecurEvery,<br>
+                            &emsp;RecurOfEvery<br>`,
+                        `&emsp;&emsp;&emsp;4,<br>
+                            &emsp;&emsp;&emsp;${day},<br>
+                            &emsp;&emsp;&emsp;1`
+                    ];
+                } else if (selectedRecur == 'Once a Year on Selected Date') {
+                    return [
+                        `&emsp;RecurrenceTypeID,<br>
+                            &emsp;RecurEndTypeID,<br>
+                            &emsp;RecurEvery,<br>
+                            &emsp;RecurNameID<br>`,
+                        `&emsp;&emsp;&emsp;6,<br>
+                            &emsp;&emsp;&emsp;0,<br>
+                            &emsp;&emsp;&emsp;${day},<br>
+                            &emsp;&emsp;&emsp;${month}`
+                    ];
+                }
+            }
+
+            //Build out SQL statement
+
+            code.innerHTML =
+                `INSERT INTO GLSuite_${inputArray[0].value}_DEV..DataRuleQueue
+            <br>&emsp;(
+            <br>&emsp;EntityIDRequested,
+            <br>&emsp;DateRequested,
+            <br>&emsp;DataRuleQueueStatusID,
+            <br>&emsp;LocatorEntityID,
+            <br>&emsp;LocatorObjectID,
+            <br>&emsp;LocatorPK,
+            <br>&emsp;ObjectID,
+            <br>&emsp;ObjectTypeID,
+            <br>&emsp;AssociationTypeID,
+            <br>${setRecur(inputArray[8].value)[0]}&emsp;)
+            <br>&emsp;&emsp;SELECT
+            <br>&emsp;&emsp;&emsp;${inputArray[1].value},
+            <br>&emsp;&emsp;&emsp;DATETIMEFROMPARTS(${year},${month},${day},${hour},${mins},00,000),
+            <br>&emsp;&emsp;&emsp;2,
+            <br>&emsp;&emsp;&emsp;${inputArray[3].value},
+            <br>&emsp;&emsp;&emsp;${inputArray[4].value},
+            <br>&emsp;&emsp;&emsp;${inputArray[5].value},
+            <br>&emsp;&emsp;&emsp;34,
+            <br>&emsp;&emsp;&emsp;${inputArray[6].value},
+            <br>&emsp;&emsp;&emsp;${inputArray[7].value}
+            <br>${setRecur(inputArray[8].value)[1]}
+            <br>SELECT 1 as RetVal FOR XML RAW`
+        })
+
+        //Copy to clipboard
+
+        copy = () => {
+            let range = document.createRange();
+            range.selectNode(code);
+            window.getSelection().addRange(range);
+            document.execCommand('Copy');
+            window.getSelection().removeAllRanges();
+        }
+    </script>
+
+</body>
+
+</html>
