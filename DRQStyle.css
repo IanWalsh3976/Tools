@@ -24,7 +24,7 @@ input.settings {
 .codeWrapper {
     border: 0.5px solid black;
     border-radius: 5px;
-    width: 35%;
+    width: auto;
     padding: 5px;
     display: none;
     overflow-x: auto;
