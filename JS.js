@@ -99,7 +99,7 @@
      <br>&emsp;&emsp;&emsp;${inputArray[5].value},
      <br>&emsp;&emsp;&emsp;34,
      <br>&emsp;&emsp;&emsp;${inputArray[6].value},
-     <br>&emsp;&emsp;&emsp;${inputArray[7].value}
+     <br>&emsp;&emsp;&emsp;${inputArray[7].value},
      <br>${setRecur(inputArray[8].value)[1]}
      <br>SELECT 1 as RetVal FOR XML RAW`
  })
